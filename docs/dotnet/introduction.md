@@ -14,6 +14,8 @@ Currently, the document describes guidelines for client libraries exposing HTTP/
 
 We'll use the client library for the [Azure Application Configuration service](https://github.com/Azure/azure-sdk-for-net/tree/master/sdk/appconfiguration/Azure.Data.AppConfiguration) to illustrate various design concepts.
 
+### The Central API Shape
+
 ### Design Principles {#dotnet-principles}
 
 The main value of the Azure SDK is productivity. Other qualities, such as completeness, extensibility, and performance are important but secondary.  We ensure our customers can be highly productive when using our libraries by ensuring these libraries are:
@@ -46,6 +48,10 @@ The main value of the Azure SDK is productivity. Other qualities, such as comple
 * Great logging, tracing, and error messages
 * Predictable support lifecycle, feature coverage, and quality
 
+### Writing Idiomatic .NET
+
+### HTTP and Non-HTTP Services
+
 ### General Guidelines {#dotnet-general}
 
 {% include requirement/MUST id="dotnet-general-follow-framework-guidelines" %} follow the official [.NET Framework Design Guidelines].
@@ -61,6 +67,7 @@ The guidelines provide a robust methodology for communicating with Azure service
 The pipeline can be found in the [Azure.Core] package, and it takes care of many [General Azure SDK Guidelines][general-guidelines]. Details of the pipeline design and usage are described in section [Using HttpPipeline](#dotnet-usage-httppipeline) below. If you can't use the pipeline, you must implement [all the general requirements of Azure SDK]({{ "/general_azurecore.html" | relative_url }}) manually.
 
 ## Azure SDK API Design {#dotnet-api}
+
 
 ### The Service Client {#dotnet-client}
 
@@ -570,6 +577,10 @@ BlobBaseClient client = ...
 {% include requirement/MAY id="dotnet-lro-subclass" %} add additional APIs to subclasses of ```Operation<T>```.
 For example, some subclasses add a constructor allowing to create an operation instance from a previously saved operation ID. Also, some subclasses are more granular states besides the IsCompleted and HasValue states that are present on the base class.
 
+#### Client Design Considerations
+
+##### Hierarchical Clients
+
 ### Client Types
 
 #### Model Types
@@ -686,7 +697,7 @@ Some .NET Design Guidelines have been notoriously overlooked in existing Azure S
 {% include refs.md %}
 {% include_relative refs.md %}
 
-## Azure SDK API Features {#dotnet-api-features}
+## Azure SDK Library Features {#dotnet-api-features}
 
 ### Global Configuration
 
@@ -759,6 +770,10 @@ Use the following target setting in the `.csproj` file:
 ```
 <TargetFramework>netstandard2.0</TargetFramework>
 ```
+
+#### Common Libraries
+
+[//]: # TODO
 
 ### Dependencies {#dotnet-dependencies}
 
