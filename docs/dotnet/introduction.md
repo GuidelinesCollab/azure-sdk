@@ -10,7 +10,6 @@ sidebar: general_sidebar
 
 The following document describes .NET specific guidelines for designing Azure SDK client libraries. These guidelines complement general [.NET Framework Design Guidelines] with design considerations specific to the Azure SDK. These guidelines also expand on and simplify language-independent [General Azure SDK Guidelines][general-guidelines]. More specific guidelines take precedence over more general guidelines.
 
-Currently, the document describes guidelines for client libraries exposing HTTP/REST services. It may be expanded in the future to cover other, non-REST, services.
 
 We'll use the client library for the [Azure Application Configuration service](https://github.com/Azure/azure-sdk-for-net/tree/master/sdk/appconfiguration/Azure.Data.AppConfiguration) to illustrate various design concepts.
 
@@ -62,7 +61,9 @@ The pipeline can be found in the [Azure.Core] package, and it takes care of many
 
 ### HTTP and Non-HTTP Services
 
-TODO
+Currently, this document describes guidelines for client libraries exposing HTTP/REST services. It may be expanded in the future to cover other, non-REST, services.
+
+{% include requirement/MUST id="general-other-protocols-consult-on-policies" %} reach out to the [Architecture Board] for guidance on non-HTTP Services.
 
 ## Azure SDK API Design {#dotnet-api}
 
@@ -692,8 +693,6 @@ public static class ConfigurationModelFactory {
     public static ConfigurationSetting ConfigurationSetting(string key, string value, string label=default, string contentType=default, ETag eTag=default, DateTimeOffset? lastModified=default, bool? locked=default, int? ttl=default);
 }
 ```
-
-### Service Telemetry
 
 ## Azure SDK Library Design
 
