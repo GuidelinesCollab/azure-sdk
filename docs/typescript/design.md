@@ -467,6 +467,12 @@ TODO: Say how we expose progress reporting for LROs in JS/TS
 
 {% include draft.html content="Long-running operations will use the <code>@azure/core-lro</code> package, which is an abstration that provides the above requirements" %}
 
+#### Client Design Considerations
+
+##### Hierarchical Clients
+
+TODO: Add discussion of hierarchical clients
+
 ### Exceptions and Service Errors
 
 {% include requirement/MUST id="ts-error-handling" %} use ECMAScript built-in error types for validation failures when appropriate. Specifically,
@@ -557,7 +563,83 @@ Your `tsconfig.json` should look similar to the following example:
 
 ## Azure SDK Library Design
 
+### Platform Support {#ts-platform-support}
+
+{% include requirement/MUST id="ts-node-support" %} support [all LTS versions of Node](https://github.com/nodejs/Release#release-schedule) and newer versions up to and including the latest release. At time of writing, this means Node 8.x through Node 12.x.
+
+{% include requirement/MUST id="ts-browser-support" %} support the following browsers and versions:
+
+* Apple Safari: latest two versions
+* Google Chrome: latest two versions
+* Microsoft Edge: all supported versions
+* Mozilla FireFox: latest two versions
+
+Use [caniuse.com](https://caniuse.com) to determine whether you can use a given platform feature in the runtime versions you support. Syntax support is provided by TypeScript.
+
+{% include requirement/SHOULDNOT id="ts-no-ie11-support" %} support IE11. If you have a business justification for IE11 support, contact the [Architecture Board].
+
+{% include requirement/MUST id="ts-support-ts" %} compile without errors on all versions of TypeScript greater than 3.1.
+
+While consumers are fast at adopting new versions of TypeScript, version 3.1 is used by Angular 7, which is still commonly used.  Supporting older versions of TypeScript can be a challenge. There are two general approaches:
+
+1. Don't use new features.
+2. Use [`typesVersions`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-1.html#version-selection-with-typesversions), which might require manual effort to produce typings compatible with older versions based on the new typings.
+
+{% include requirement/MUST id="ts-register-dropped-platforms" %} get approval from the [Architecture Board] to drop support for any platform (except IE11 and Node 6) even if support isn't required.
+
 ### Namespaces, NPM Scopes, and Distribution Tags {#ts-namespace}
+
+{% include requirement/MUST id="ts-azure-scope" %} publish your library to the `@azure` npm scope.
+
+{% include requirement/MUST id="ts-namespace-serviceclient" %} pick a package name that allows the consumer to tie the namespace to the service being used.  As a default, use the compressed service name at the end of the namespace.  The namespace does **NOT** change when the branding of the product changes. Avoid the use of marketing names that may change.
+
+{% include requirement/MUST id="ts-npm-dist-tag-beta" %} tag beta packages with the npm distribution tag `next`. If there is no generally available release of this package, it should also be tagged `latest`.
+
+{% include requirement/MUST id="ts-npm-dist-tag-next" %} tag generally available npm packages `latest`. Generally available packages may also be tagged `next` if they include the changes from the most recent beta.
+
+{% include requirement/MUST id="ts-namespace-in-browsers" %} use one of the appropriate namespaces (see below) for browser globals when producing UMD builds.
+
+In cases where namespaces are supported, the namespace should be named `Azure.<group>.<service>`. All consumer-facing APIs that are commonly used should exist within this namespace.  Here:
+
+- `<group>` is the group for the service (see the list above)
+- `<service>` is the service name represented as a single word
+
+{% include requirement/MUST id="ts-namespace-startswith" %} start the namespace with `Azure`.
+
+{% include requirement/MUST id="ts-namespace-camelcase" %} use camel-casing for elements of the namespace.
+
+A compressed service name is the service name without spaces.  It may further be shortened if the shortened version is well known in the community.  For example, "Azure Media Analytics" would have a compressed service name of "MediaAnalytics", and "Azure Service Bus" would become "ServiceBus".
+
+{% include requirement/MUST id="ts-namespace-names" %} use the following list as the group of services (if the target language supports namespaces):
+
+{% include tables/data_namespaces.md %}
+
+{% include requirement/MUST id="ts-namespace-split-management-api" %} place the management (Azure Resource Manager) API in the "management" group.  Use the grouping `Azure.Management.<group>.<servicename>` for the namespace.  Since more services require control plane APIs than data plane APIs, other namespaces may be used explicitly for control plane only.  Data plane usage is by exception only.  Additional namespaces that can be used for control plane libraries include:
+
+{% include tables/mgmt_namespaces.md %}
+
+Many `management` APIs don't have a data plane.  It's reasonable to place the management library in the `Azure.Management` namespace.  For example, use `Azure.Management.CostAnalysis`, not `Azure.Management.Management.CostAnalysis`.
+
+{% include requirement/MUSTNOT id="ts-namespace-avoid-ambiguity" %} choose similar names for clients that do different things.
+
+{% include requirement/MUST id="ts-namespace-register" %} register the chosen namespace with the [Architecture Board].  Open an issue to request the namespace.  See [the registered namespace list](registered_namespaces.html) for a list of the currently registered namespaces.
+
+These namespace examples meet the guidelines:
+
+- `Azure.Data.Cosmos`
+- `Azure.Identity.ActiveDirectory`
+- `Azure.IoT.DeviceProvisioning`
+- `Azure.Storage.Blob`
+- `Azure.Messaging.NotificationHubs` (the client library for Notification Hubs)
+- `Azure.Management.Messaging.NotificationHubs` (the management client for Notification Hubs)
+
+These examples that don't meet the guidelines:
+
+- `Microsoft.Azure.CosmosDB` (not in the Azure namespace, no grouping)
+- `Azure.MixedReality.Kinect` (invalid group)
+- `Azure.IoT.IoTHub.DeviceProvisioning` (too many levels)
+
+Contact the [Architecture Board] for advice if the appropriate group isn't obvious.  If you feel your service requires a new group, open a "Design Guidelines Change" request.
 
 ### Packaging {#ts-npm-package}
 
@@ -740,82 +822,149 @@ An ESM distribution is consumed by tools such as [Webpack](https://webpack.js.or
 
 Azure packages authored using TypeScript export standard ES6 modules. As Node doesn't support ES6 modules natively, authoring ES6 modules for consumption in Node has a bit of friction. Most notably, a commonJS package can only import a single value.
 
-### Platform Support {#ts-platform-support}
+### Dependencies {#ts-dependencies}
 
-{% include requirement/MUST id="ts-node-support" %} support [all LTS versions of Node](https://github.com/nodejs/Release#release-schedule) and newer versions up to and including the latest release. At time of writing, this means Node 8.x through Node 12.x.
+Dependencies bring in many considerations that are often easily avoided by avoiding the dependency:
 
-{% include requirement/MUST id="ts-browser-support" %} support the following browsers and versions:
+**Versioning**: Many programming languages don't allow a consumer to load multiple versions of the same package. For example, if we have a client library that requires v3 of package `Foo` and the consumer wants to use v5 of package `Foo`, then the consumer can't build their application. Client libraries shouldn't have dependencies by default.
 
-* Apple Safari: latest two versions
-* Google Chrome: latest two versions
-* Microsoft Edge: all supported versions
-* Mozilla FireFox: latest two versions
+**Size**: Consumer applications need to deploy as fast as possible into the cloud. Remove additional code (like dependencies) to improve deployment performance.
 
-Use [caniuse.com](https://caniuse.com) to determine whether you can use a given platform feature in the runtime versions you support. Syntax support is provided by TypeScript.
+**Licensing**: You must be conscious of the licensing restrictions of a dependency and often provide proper attribution and notices when using them.
 
-{% include requirement/SHOULDNOT id="ts-no-ie11-support" %} support IE11. If you have a business justification for IE11 support, contact the [Architecture Board].
+**Compatibility**: You don't control the dependency. It may choose to evolve in a direction that is incompatible with your original use.
 
-{% include requirement/MUST id="ts-support-ts" %} compile without errors on all versions of TypeScript greater than 3.1.
+**Security**: If a vulnerability is discovered in a dependency, it may be difficult or time consuming to get the vulnerability corrected.
 
-While consumers are fast at adopting new versions of TypeScript, version 3.1 is used by Angular 7, which is still commonly used.  Supporting older versions of TypeScript can be a challenge. There are two general approaches:
+{% include requirement/MUST id="ts-dependencies-azure-core" %} depend on the Azure Core library for functionality that is common across all client libraries.  This library includes APIs for HTTP connectivity, global configuration, and credential handling.
 
-1. Don't use new features.
-2. Use [`typesVersions`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-1.html#version-selection-with-typesversions), which might require manual effort to produce typings compatible with older versions based on the new typings.
+{% include requirement/MUSTNOT id="ts-dependencies-no-other-packages" %} depend any other packages within the client library distribution package. Dependencies are thoroughly vetted through architecture review.  Build dependencies, by contrast, are acceptable and commonly used.
 
-{% include requirement/MUST id="ts-register-dropped-platforms" %} get approval from the [Architecture Board] to drop support for any platform (except IE11 and Node 6) even if support isn't required.
+{% include requirement/SHOULD id="ts-dependencies-consider-vendoring" %} consider copying or linking required code into the client library to avoid taking a dependency on another package. Don't violate the license agreements. Consider the maintenance that will be required when duplicating code. ["A little copying is better than a little dependency"](https://www.youtube.com/watch?v=PAAkCSZUG1c&t=9m28s) (YouTube).
+
+{% include requirement/MUSTNOT id="general-no-concrete-logging" %} depend on concrete logging, dependency injection, or configuration technologies (except as implemented in the Azure Core library).
+
+{% include requirement/SHOULDNOT id="ts-dependencies-no-tiny-libraries" %} take dependencies on tiny libraries as the cost of many small libraries adds up over time. Larger dependencies are subject to approval.
+
+{% include requirement/SHOULDNOT id="ts-dependencies-no-polyfills" %} depend directly on polyfills or other libraries that modify global scope. If developers using older runtimes need to polyfill some capability, the package install and usage instructions (in the `README`) should indicate this dependency.
+
+The following table lists the well-known and already-blessed dependencies outside of Azure Core that may be used in production (non-test) code.
+<a name="ts-known-deps"></a>
+
+{% include_relative approved_dependencies.md %}
+
+### Versioning {#ts-versioning}
+
+Consistent versioning allows consumers to determine what to expect from a new version of the library.  However, versioning rules tend to be very idiomatic to the language.  The engineering system release guidelines require the use of _MAJOR_._MINOR_._PATCH_ format for the version.
+
+{% include requirement/MUST id="general-versioning-bump" %} change the version number of the client library when **ANYTHING** changes in the client library.
+
+{% include requirement/MUST id="general-versioning-patch" %} increment the patch version when fixing a bug.
+
+{% include requirement/MUSTNOT id="general-versioning-no-features-in-patch" %} include new features in a patch release.
+
+{% include requirement/MUST id="general-versioning-adding-features" %} increment the major or minor version when adding support for a service API version, or add a backwards-compatible feature.
+
+{% include requirement/MUSTNOT id="general-versioning-no-breaking-changes" %} make breaking changes.  If a breaking change is absolutely required, then you **MUST** engage with the [Architecture Board] prior to making the change.  If a breaking change is approved, increment the major version.
+
+{% include requirement/SHOULD id="general-versioning-major-bump" %} increment the major version when making large feature changes.
+
+{% include requirement/MUST id="general-versioning-serviceapi-support" %} provide the ability to call a specific supported version of the service API.
+
+A particular (major.minor) version of a library can choose what service APIs it supports.  We recommend the support window be no less than two service versions (if available) and no less than what is specified in the [Fixed Lifecycle Policy for Microsoft business, developer, and desktop systems](https://support.microsoft.com/help/14085).
+
+{% include requirement/MUST id="ts-versioning-semver" %} version with [semver](https://semver.org/). Deprecated features and flags must offer an alternate stable or beta path for developers.
+
+{% include requirement/MUSTNOT id="ts-versioning-no-ga-prerelease" %} have a pre-release version or any additional build metadata for GA packages.
+
+{% include requirement/MUST id="ts-versioning-beta" %} give beta packages a pre-release version of the format `1.0.0-beta.X` where X is an integer. Pre-release package versions shouldn't have additional build metadata.
+
+{% include requirement/MUSTNOT id="ts-versioning-no-version-0" %} use a major version of 0, even for beta packages.
+
+{% include requirement/MUST id="general-versioning-bump" %} select a version number greater than the highest version number of any other released Track 1 package for the service in any other npm scope or language.
+
+Semantic versioning is more of a lofty ideal than a practical specification for some libraries. Also, [one person's bug might be another person's key feature](https://xkcd.com/1172/). Package authors are required to follow semver in a way that is useful for their consumers.
+
+For more details, review the [Releases policy]({{ site.baseurl }}/policies_releases.html).
+
+### Logging {#general-logging}
+
+Client libraries must support robust logging mechanisms so that the consumer can adequately diagnose issues with the method calls and quickly determine whether the issue is in the consumer code, client library code, or service.
+
+{% include requirement/MUST id="ts-logging-use-debug-module" %} use the `debug` module to log to stderr or the browser console.
+
+{% include requirement/MUST id="general-logging-console" %} make it easy for a consumer to enable logging output to the console. The specific steps required to enable logging to the console must be documented.
+
+{% include requirement/MUST id="ts-logging-prefix-channel-names" %} prefix channel names with `azure:<service-name>`.
+
+{% include requirement/MUST id="ts-logging-channels" %} create log channels for the following log levels with the following channel name suffixes:
+
+* Error: `:error`
+* Warning: `:warning`
+* Info: `:info`
+* Verbpse: `:verbose`
+
+{% include requirement/MAY id="ts-logging-additional-channels" %} have additional log channels, for example, to log from separate components. However, these channels MUST still provide the three log levels from above for each subchannel.
+
+{% include requirement/MUST id="ts-logging-top-level-exports" %} expose all log channels as top-level exports of your package, allowing the consumer to configure how the logging happens and integrate with 3rd-party loggers.
+
+{% include requirement/MUST id="general-logging-levels-error" %} use the Error channel for failures that the application is unlikely to recover from (out of memory, etc.).
+
+{% include requirement/MUST id="general-logging-levels-warning" %} use the Warning channel when a function fails to perform its intended task. This generally means that the function will raise an exception.  Do not include occurrences of self-healing events (for example, when a request will be automatically retried).
+
+{% include requirement/MUST id="general-logging-levels-informational" %} use the Info channel when a function operates normally.
+
+{% include requirement/MUST id="general-logging-levels-verbose" %} use the Verbose channel for detailed troubleshooting scenarios. This is primarily intended for developers or system administrators to diagnose specific failures.
+
+{% include requirement/MUSTNOT id="general-logging-no-sensitive-info" %} send sensitive information in channels other than Verbose. For example, remove account keys when logging headers.
+
+{% include requirement/MUST id="general-logging-requests-in-info" %} log request line, response line, and headers on the Info channel.
+
+{% include requirement/MUST id="general-logging-info-if-cancelled" %} log to the Info channel if a service call is cancelled.
+
+{% include requirement/MUST id="general-logging-error-if-exceptions" %} log exceptions thrown to the Warning channel. Additionally, send stack trace information to the Verbose channel.
+
+### Distributed tracing {#general-distributed-tracing}
+
+Distributed tracing mechanisms allow the consumer to trace their code from frontend to backend. The distributed tracing library creates spans - units of unique work.  Each span is in a parent-child relationship.  As you go deeper into the hierarchy of code, you create more spans.  These spans can then be exported to a suitable receiver as needed.  To keep track of the spans, a _distributed tracing context_ (called a context in the remainder of this section) is passed into each successive layer.  For more information on this topic, visit the [OpenTelemetry] topic on tracing.
+
+{% include draft.html content="DRAFT GUIDELINES" %}
+
+{% include requirement/MUST id="general-tracing-support-opentelemetry" %} support [OpenTelemetry] for distributed tracing.
+
+{% include requirement/MUST id="general-tracing-parent-span" %} take an option named `parentSpanId` for all asynchronous operations.
+
+{% include requirement/MUST id="general-tracing-pass-context" %} pass the context to the backend service through the appropriate headers (`traceparent`, `tracestate`, etc.) to support [Azure Monitor].  This is generally done with the HTTP pipeline.
+
+{% include requirement/MUST id="general-tracing-create-span-on-entry" %} create a new span for each method that user code calls.  New spans must be children of the context that was passed in.  If no context was passed in, a new root span must be created.
+
+{% include requirement/MUST id="general-tracing-create-span-on-rest" %} create a new span (which must be a child of the per-method span) for each REST call that the client library makes.  This is generally done with the HTTP pipeline.
+
+Some of these requirements will be handled by the HTTP pipeline.  However, as a client library writer, you must handle the incoming context appropriately.  JavaScript doesn't have primitives similar to a local context.  As such, we must manually plumb parent span IDs into the library.
 
 
-{% include requirement/MUST id="ts-azure-scope" %} publish your library to the `@azure` npm scope.
 
-{% include requirement/MUST id="ts-namespace-serviceclient" %} pick a package name that allows the consumer to tie the namespace to the service being used.  As a default, use the compressed service name at the end of the namespace.  The namespace does **NOT** change when the branding of the product changes. Avoid the use of marketing names that may change.
-
-{% include requirement/MUST id="ts-npm-dist-tag-beta" %} tag beta packages with the npm distribution tag `next`. If there is no generally available release of this package, it should also be tagged `latest`.
-
-{% include requirement/MUST id="ts-npm-dist-tag-next" %} tag generally available npm packages `latest`. Generally available packages may also be tagged `next` if they include the changes from the most recent beta.
-
-{% include requirement/MUST id="ts-namespace-in-browsers" %} use one of the appropriate namespaces (see below) for browser globals when producing UMD builds.
-
-In cases where namespaces are supported, the namespace should be named `Azure.<group>.<service>`. All consumer-facing APIs that are commonly used should exist within this namespace.  Here:
-
-- `<group>` is the group for the service (see the list above)
-- `<service>` is the service name represented as a single word
-
-{% include requirement/MUST id="ts-namespace-startswith" %} start the namespace with `Azure`.
-
-{% include requirement/MUST id="ts-namespace-camelcase" %} use camel-casing for elements of the namespace.
-
-A compressed service name is the service name without spaces.  It may further be shortened if the shortened version is well known in the community.  For example, "Azure Media Analytics" would have a compressed service name of "MediaAnalytics", and "Azure Service Bus" would become "ServiceBus".
-
-{% include requirement/MUST id="ts-namespace-names" %} use the following list as the group of services (if the target language supports namespaces):
-
-{% include tables/data_namespaces.md %}
-
-{% include requirement/MUST id="ts-namespace-split-management-api" %} place the management (Azure Resource Manager) API in the "management" group.  Use the grouping `Azure.Management.<group>.<servicename>` for the namespace.  Since more services require control plane APIs than data plane APIs, other namespaces may be used explicitly for control plane only.  Data plane usage is by exception only.  Additional namespaces that can be used for control plane libraries include:
-
-{% include tables/mgmt_namespaces.md %}
-
-Many `management` APIs don't have a data plane.  It's reasonable to place the management library in the `Azure.Management` namespace.  For example, use `Azure.Management.CostAnalysis`, not `Azure.Management.Management.CostAnalysis`.
-
-{% include requirement/MUSTNOT id="ts-namespace-avoid-ambiguity" %} choose similar names for clients that do different things.
-
-{% include requirement/MUST id="ts-namespace-register" %} register the chosen namespace with the [Architecture Board].  Open an issue to request the namespace.  See [the registered namespace list](registered_namespaces.html) for a list of the currently registered namespaces.
-
-These namespace examples meet the guidelines:
-
-- `Azure.Data.Cosmos`
-- `Azure.Identity.ActiveDirectory`
-- `Azure.IoT.DeviceProvisioning`
-- `Azure.Storage.Blob`
-- `Azure.Messaging.NotificationHubs` (the client library for Notification Hubs)
-- `Azure.Management.Messaging.NotificationHubs` (the management client for Notification Hubs)
-
-These examples that don't meet the guidelines:
-
-- `Microsoft.Azure.CosmosDB` (not in the Azure namespace, no grouping)
-- `Azure.MixedReality.Kinect` (invalid group)
-- `Azure.IoT.IoTHub.DeviceProvisioning` (too many levels)
-
-Contact the [Architecture Board] for advice if the appropriate group isn't obvious.  If you feel your service requires a new group, open a "Design Guidelines Change" request.
 
 {% include refs.md %}
 {% include_relative refs.md %}
+
+### Service-specific common library code
+
+There are occasions when common code needs to be shared between several client libraries.  For example, a set of cooperating client libraries may wish to share a set of exceptions or models.
+
+{% include requirement/MUST id="general-implementing-common-library-usage" %} gain [Architecture Board] approval prior to implementing a common library.
+
+{% include requirement/MUST id="general-implementing-minimal-common-content" %} minimize the code within a common library.  Code within the common library is available to the consumer of the client library and shared by multiple client libraries within the same namespace.
+
+{% include requirement/MUST id="general-implementing-common-namespace" %} store the common library in the same namespace as the associated client libraries.
+
+A common library will only be approved if:
+
+* The consumer of the non-shared library will consume the objects within the common library directly, AND
+* The information will be shared between multiple client libraries.
+
+Let's take two examples:
+
+1. Implementing two Cognitive Services client libraries, we find a model is required that is produced by one Cognitive Services client library and consumed by another Coginitive Services client library, or the same model is produced by two client libraries.  The consumer is required to do the passing of the model in their code, or may need to compare the model produced by one client library vs. that produced by another client library.  This is a good candidate for choosing a common library.
+
+2. Two Cognitive Services client libraries throw an `ObjectNotFound` exception to indicate that an object was not detected in an image.  The user might trap the exception, but otherwise will not operate on the exception.  There is no linkage between the `ObjectNotFound` exception in each client library.  This is not a good candidate for creation of a common library (although you may wish to place this exception in a common library if one exists for the namespace already).  Instead, produce two different exceptions - one in each client library.
