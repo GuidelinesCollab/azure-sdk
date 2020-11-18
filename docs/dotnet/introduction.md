@@ -14,8 +14,6 @@ Currently, the document describes guidelines for client libraries exposing HTTP/
 
 We'll use the client library for the [Azure Application Configuration service](https://github.com/Azure/azure-sdk-for-net/tree/master/sdk/appconfiguration/Azure.Data.AppConfiguration) to illustrate various design concepts.
 
-### The Central API Shape
-
 ### Design Principles {#dotnet-principles}
 
 The main value of the Azure SDK is productivity. Other qualities, such as completeness, extensibility, and performance are important but secondary.  We ensure our customers can be highly productive when using our libraries by ensuring these libraries are:
@@ -48,10 +46,6 @@ The main value of the Azure SDK is productivity. Other qualities, such as comple
 * Great logging, tracing, and error messages
 * Predictable support lifecycle, feature coverage, and quality
 
-### Writing Idiomatic .NET
-
-### HTTP and Non-HTTP Services
-
 ### General Guidelines {#dotnet-general}
 
 {% include requirement/MUST id="dotnet-general-follow-framework-guidelines" %} follow the official [.NET Framework Design Guidelines].
@@ -66,8 +60,11 @@ The guidelines provide a robust methodology for communicating with Azure service
 
 The pipeline can be found in the [Azure.Core] package, and it takes care of many [General Azure SDK Guidelines][general-guidelines]. Details of the pipeline design and usage are described in section [Using HttpPipeline](#dotnet-usage-httppipeline) below. If you can't use the pipeline, you must implement [all the general requirements of Azure SDK]({{ "/general_azurecore.html" | relative_url }}) manually.
 
-## Azure SDK API Design {#dotnet-api}
+### HTTP and Non-HTTP Services
 
+TODO
+
+## Azure SDK API Design {#dotnet-api}
 
 ### The Service Client {#dotnet-client}
 
@@ -247,7 +244,7 @@ Don't ask users to compose connection strings manually if they aren't available 
 
 ##### Client Configuration {#dotnet-authentication}
 
-[//]: # TODO
+TODO - is it possible to chunk this piece out of the above and does that make sense?
 
 #### Service Methods {#dotnet-client-methods}
 
@@ -269,6 +266,8 @@ public class ConfigurationClient {
     public virtual Response<ConfigurationSetting> Delete(string key, SettingFilter filter = default, CancellationToken cancellationToken = default);
 }
 ```
+
+##### Sync and Async Methods
 
 {% include requirement/MUST id="dotnet-service-methods-sync-and-async" %} provide both asynchronous and synchronous variants for all service methods.
 
@@ -296,74 +295,17 @@ There are two possible return types from asynchronous methods: `Task` and `Value
 
 {% include requirement/MUST id="dotnet-service-methods-thread-safety" %} be thread-safe. All public members of the client type must be safe to call from multiple threads concurrently.
 
-
 ##### Service Method Naming
 
-[//]: # TODO
+TODO
 
-##### Service Method Parameters {#dotnet-parameters}
+##### Service Method Input and Output Types
 
-Service methods fall into two main groups when it comes to the number and complexity of parameters they accept:
+TODO: Discuss Model Types, i.e. both input and output - resources defined by service that have a schema
 
-- Service Methods with Simple Inputs, _simple methods_ for short
-- Service Methods with Complex Inputs, _complext methods_ for short
+###### Model Types
 
-_Simple methods_ are methods that take up to six parameters, with most of the parameters being simple BCL primitives. _Complex methods_ are methods that take large number of parameters and typically correspond to REST APIs with complex request payloads.
-
-_Simple methods_ should follow standard .NET Design Guidelines for parameter list and overload design.
-
-_Complex methods_ should use _option parameter_ to represent the request payload, and consider providing convenience simple overloads for most common scenarios.
-
-```csharp
-public class BlobContainerClient {
-
-    // simple service method
-    public virtual Response<BlobInfo> UploadBlob(string blobName, Stream content, CancellationToken cancellationToken = default);
-
-    // complex service method
-    public virtual Response<BlobInfo> CreateBlob(BlobCreateOptions options = null, CancellationToken cancellationToken = default);
-
-    // convinience overload[s]
-    public virtual Response<BlobContainerInfo> CreateBlob(string blobName, CancellationToken cancellationToken = default);
-}
-
-public class BlobCreateOptions {
-    public PublicAccessType Access { get; set; }
-    public IDictionary<string, string> Metadata { get; }
-    public BlobContainerEncryptionScopeOptions Encryption { get; set; }
-    ...
-}
-```
-
-{% include requirement/MUST id="dotnet-params-complex" %} use the _options_ parameter pattern for complex service methods.
-
-{% include requirement/MAY id="dotnet-params-complex" %} use the _options_ parameter pattern for simple service methods that you expect to `grow` in the future.
-
-{% include requirement/MAY id="dotnet-params-complex" %} add simple overloads of methods using the _options_ parameter pattern.
-
-If in common scenarios, users are likely to pass just a small subset of what the _options_ parameter represents, consider adding an overload with a parameter list representing just this subset.
-
-###### Parameter Validation
-
-Service methods take two kinds of parameters: _service parameters_ and _client parameters_. _Service parameters_ are directly passed across the wire to the service.  _Client parameters_ are used within the client library and aren't passed directly to the service.
-
-{% include requirement/MUST id="dotnet-params-client-validation" %} validate client parameters.
-
-{% include requirement/MUSTNOT id="dotnet-params-service-validation" %} validate service parameters.
-
-Common parameter validations include null checks, empty string checks, and range checks. Let the service validate its parameters.
-
-{% include requirement/MUST id="dotnet-params-test-devex" %} test the developer experience when invalid service parameters are passed in. Ensure clear error messages are generated by the client. If the developer experience is inadequate, work with the service team to correct the problem.
-
-As mentioned above, service methods will often return `Response<T>`. The `T` can be either an unstructured payload (e.g. bytes of a storage blob) or a _model type_ representing deserialized response content. This section describes guidelines for the design of unstructured return types, _model types_, and all their transitive closure of public dependencies (i.e. the _model graph_).
-
-{% include requirement/MUST id="dotnet-service-return-unstructured-type" %} use one of the following return types to represent an unstructured payload:
-
-* `System.IO.Stream` - for large payloads
-* `byte[]` - for small payloads
-* `ReadOnlyMemory<byte>` - for slices of small payloads
-
-{% include requirement/MUST id="dotnet-service-return-model-type" %} return a _model type_ if the content has a schema and can be deserialized.
+A _model type_ is a type that represents a resource on the service, or a type that the service takes as input or returns as output, and where the schema is defined by the service.  Note that Azure SDK model types need not be a direct mapping to the types defined by the service's REST API specification.  In the Azure SDK, the type definitions can be modified to better achieve the [SDK Principles]({#dotnet-principles}).
 
 For example, review the configuration service _model type_ below:
 
@@ -389,6 +331,15 @@ public sealed class ConfigurationSetting : IEquatable<ConfigurationSetting> {
     public override int GetHashCode();
     [EditorBrowsable(EditorBrowsableState.Never)]
     public override string ToString();
+}
+```
+
+This model is taken as an input parameter to service methods as follows:
+
+```csharp
+public class ConfigurationClient {
+        public virtual Response<ConfigurationSetting> SetConfigurationSetting(ConfigurationSetting setting, bool onlyIfUnchanged = false, CancellationToken cancellationToken = default);
+        public virtual Task<Response<ConfigurationSetting>> SetConfigurationSettingAsync(ConfigurationSetting setting, bool onlyIfUnchanged = false, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -428,9 +379,10 @@ Good candidates for struct are types that are small and immutable, especially if
 For example, implement `IEquatable<T>`, `IComparable<T>`, `IEnumerable<T>`, etc. if applicable.
 
 {% include requirement/SHOULD id="dotnet-service-return-model-collections" %} use the following collection types for properties of model types:
+
 - ```IReadOnlyList<T>``` and ```IList<T>``` for most collections
 - ```IReadOnlyDictionary<T>``` and ```IDictionary<T>``` for lookup tables
-- ```T[]```, ```Memory<T>```, and ```ReadOnlyMemory<T>``` when low allocations and perfromance are critical
+- ```T[]```, ```Memory<T>```, and ```ReadOnlyMemory<T>``` when low allocations and performance are critical
 
 Note that this guidance does not apply to input parameters. Input parameters representing collections should follow standard [.NET Design Guidelines](https://docs.microsoft.com/dotnet/standard/design-guidelines/parameter-design), e.g. use ```IEnumerable<T>``` is allowed.
 Also, this guidance does not apply to return types of service method calls. These should be using ```Pageable<T>``` and ```AsyncPageable<T>``` discussed in [Service Method Return Types](#dotnet-method-return).
@@ -452,6 +404,7 @@ namespace Azure.Storage.Blobs.Models {
     ...
 }
 ```
+
 {% include requirement/SHOULD id="dotnet-service-editor-browsable-state" %} apply the `[EditorBrowsable(EditorBrowsableState.Never)]` attribute to methods that the user isn't meant to call.
 
 Adding this attribute will hide the methods from being shown with IntelliSense.  A user will almost never call `GetHashCode()` directly.  `Equals(object)` is almost never called if the type implements `IEquatable<T>` (which is preferred).  Hide the `ToString()` method if it isn't overridden.
@@ -471,9 +424,85 @@ public sealed class ConfigurationSetting : IEquatable<ConfigurationSetting> {
 
 In practice, you need to provide public APIs to construct _model graphs_. See [Supporting Mocking](#dotnet-mocking) for details.
 
+###### Enumerations
 
+{% include requirement/MUST id="dotnet-enums" %} use an `enum` for parameters, properties, and return types when values are known.
 
-##### Service Method Return Types {#dotnet-method-return}
+{% include requirement/MAY id="dotnet-enums-exception" %} use a `readonly struct` in place of an `enum` that declares well-known fields but can contain unknown values returned from the service, or user-defined values passed to the service.
+
+See [enumeration-like structure documentation](implementation.md#dotnet-enums) for implementation details.
+
+###### Service Method Parameters {#dotnet-parameters}
+
+Service methods fall into two main groups when it comes to the number and complexity of parameters they accept:
+
+- Service Methods with Simple Inputs, _simple methods_ for short
+- Service Methods with Complex Inputs, _complex methods_ for short
+
+_Simple methods_ are methods that take up to six parameters, with most of the parameters being simple BCL primitives. _Complex methods_ are methods that take large number of parameters and typically correspond to REST APIs with complex request payloads.
+
+_Simple methods_ should follow standard .NET Design Guidelines for parameter list and overload design.
+
+_Complex methods_ should use _option parameter_ to represent the request payload, and consider providing convenience simple overloads for most common scenarios.
+
+```csharp
+public class BlobContainerClient {
+
+    // simple service method
+    public virtual Response<BlobInfo> UploadBlob(string blobName, Stream content, CancellationToken cancellationToken = default);
+
+    // complex service method
+    public virtual Response<BlobInfo> CreateBlob(BlobCreateOptions options = null, CancellationToken cancellationToken = default);
+
+    // convinience overload[s]
+    public virtual Response<BlobContainerInfo> CreateBlob(string blobName, CancellationToken cancellationToken = default);
+}
+
+public class BlobCreateOptions {
+    public PublicAccessType Access { get; set; }
+    public IDictionary<string, string> Metadata { get; }
+    public BlobContainerEncryptionScopeOptions Encryption { get; set; }
+    ...
+}
+```
+
+{% include requirement/MUST id="dotnet-params-complex" %} use the _options_ parameter pattern for complex service methods.
+
+{% include requirement/MAY id="dotnet-params-complex" %} use the _options_ parameter pattern for simple service methods that you expect to `grow` in the future.
+
+{% include requirement/MAY id="dotnet-params-complex" %} add simple overloads of methods using the _options_ parameter pattern.
+
+If in common scenarios, users are likely to pass just a small subset of what the _options_ parameter represents, consider adding an overload with a parameter list representing just this subset.
+
+TODO: Add concrete naming guidance for Options parameters
+
+####### Parameter Validation
+
+Service methods take two kinds of parameters: _service parameters_ and _client parameters_. _Service parameters_ are directly passed across the wire to the service.  _Client parameters_ are used within the client library and aren't passed directly to the service.
+
+{% include requirement/MUST id="dotnet-params-client-validation" %} validate client parameters.
+
+{% include requirement/MUSTNOT id="dotnet-params-service-validation" %} validate service parameters.
+
+Common parameter validations include null checks, empty string checks, and range checks. Let the service validate its parameters.
+
+{% include requirement/MUST id="dotnet-params-test-devex" %} test the developer experience when invalid service parameters are passed in. Ensure clear error messages are generated by the client.  If the developer experience is inadequate, work with the service team to correct the problem.
+
+###### Service Method Return Types {#dotnet-method-return}
+
+As mentioned above, service methods will often return `Response<T>`. The `T` can be either an unstructured payload (e.g. bytes of a storage blob) or a _model type_ representing deserialized response content. This section describes guidelines for the design of unstructured return types, _model types_, and all their transitive closure of public dependencies (i.e. the _model graph_).
+
+####### Unstructured Return Types
+
+{% include requirement/MUST id="dotnet-service-return-unstructured-type" %} use one of the following return types to represent an unstructured payload:
+
+* `System.IO.Stream` - for large payloads
+* `byte[]` - for small payloads
+* `ReadOnlyMemory<byte>` - for slices of small payloads
+
+####### Structured Return Types
+
+{% include requirement/MUST id="dotnet-service-return-model-type" %} return a _model type_ if the content has a schema and can be deserialized.  See [model types]()
 
 ##### Methods Returning Collections (Pagination) {#dotnet-paging}
 
@@ -521,6 +550,7 @@ public abstract class Operation<T> {
     public abstract ValueTask<Response<T>> WaitForCompletionAsync(TimeSpan pollingInterval, CancellationToken cancellationToken);
 }
 ```
+
 Client libraries need to inherit from ```Operation<T>``` not only to implement all abstract members, but also to provide a constructor required to access an existing LRO (an LRO initiated by a different process).
 
 ```csharp
@@ -581,27 +611,14 @@ For example, some subclasses add a constructor allowing to create an operation i
 
 ##### Hierarchical Clients
 
-### Client Types
-
-#### Model Types
-
-##### Model Type Naming
-
-#### Azure Core Types
-
-#### Enumerations
-
-{% include requirement/MUST id="dotnet-enums" %} use an `enum` for parameters, properties, and return types when values are known.
-
-{% include requirement/MAY id="dotnet-enums-exception" %} use a `readonly struct` in place of an `enum` that declares well-known fields but can contain unknown values returned from the service, or user-defined values passed to the service.
-
-See [enumeration-like structure documentation](implementation.md#dotnet-enums) for implementation details.
+TODO - rework guidance from other sections
 
 ### Exceptions (Service Errors) {#dotnet-errors}
 
 {% include requirement/MUST id="dotnet-errors-response-failed" %} throw `RequestFailedException` or its subtype when a service method fails with non-success status code.
 
 The exception is available in ```Azure.Core``` package:
+
 ```csharp
 public class RequestFailedException : Exception {
 
@@ -675,45 +692,6 @@ public static class ConfigurationModelFactory {
     public static ConfigurationSetting ConfigurationSetting(string key, string value, string label=default, string contentType=default, ETag eTag=default, DateTimeOffset? lastModified=default, bool? locked=default, int? ttl=default);
 }
 ```
-
-### Commonly Overlooked .NET API Design Guidelines {#dotnet-appendix-overlookedguidelines}
-
-Some .NET Design Guidelines have been notoriously overlooked in existing Azure SDKs. This section serves as a way to highlight these guidelines.
-
-{% include requirement/SHOULDNOT id="dotnet-problems-too-many-types" %} have many types in the main namespace. Number of types is directly proportional to the perceived complexity of a library.
-
-{% include requirement/MUSTNOT id="dotnet-problems-abstractions" %} use abstractions unless the Azure SDK both returns and consumes the abstraction.  An abstraction is either an interface or abstract class.
-
-{% include requirement/MUSTNOT id="dotnet-problems-interfaces" %} use interfaces if you can use abstract classes. The only reasons to use an interface are: a) you need to "multiple-inherit", b) you want structs to implement an abstraction.
-
-{% include requirement/MUSTNOT id="dotnet-problems-generic-words" %} use generic words and terms for type names.  For example, do not use names like `OperationResponse` or `DataCollection`.
-
-{% include requirement/SHOULDNOT id="dotnet-problems-valid-values" %} use parameter types where it's not clear what valid values are supported.  For example, do not use strings but only accept certain values in the string.
-
-{% include requirement/MUSTNOT id="dotnet-problems-empty-types" %} have empty types (types with no members).
-
-<!-- Links -->
-
-{% include refs.md %}
-{% include_relative refs.md %}
-
-## Azure SDK Library Features {#dotnet-api-features}
-
-### Global Configuration
-
-### Diagnostics
-
-#### Logging
-
-Request logging will be done automatically by the `HttpPipeline`.  If a client library needs to add custom logging, follow the [same guidelines](implementation.md#general-logging) and mechanisms as the pipeline logging mechanism.  If a client library wants to do custom logging, the designer of the library must ensure that the logging mechanism is pluggable in the same way as the `HttpPipeline` logging policy.
-
-{% include requirement/MUST id="dotnet-logging-follow-guidelines" %} follow [the logging section of the Azure SDK General Guidelines](implementation.md#general-logging) if logging directly (as opposed to through the `HttpPipeline`).
-
-#### Distributed Tracing {#dotnet-distributedtracing}
-
-{% include draft.html content="Guidance coming soon ..." %}
-
-#### Unique Request Ids
 
 ### Service Telemetry
 
@@ -869,6 +847,16 @@ Use _-beta._N_ suffix for beta package versions. For example, _1.0.0-beta.2_.
 {% include requirement/SHOULD id="dotnet-version-major-changes" %} increment the major version when making large feature changes.
 
 {% include requirement/MUST id="dotnet-version-change-on-release" %} select a version number greater than the highest version number of any other released Track 1 package for the service in any other scope or language.
+
+### Logging
+
+Request logging will be done automatically by the `HttpPipeline`.  If a client library needs to add custom logging, follow the [same guidelines](implementation.md#general-logging) and mechanisms as the pipeline logging mechanism.  If a client library wants to do custom logging, the designer of the library must ensure that the logging mechanism is pluggable in the same way as the `HttpPipeline` logging policy.
+
+{% include requirement/MUST id="dotnet-logging-follow-guidelines" %} follow [the logging section of the Azure SDK General Guidelines](implementation.md#general-logging) if logging directly (as opposed to through the `HttpPipeline`).
+
+#### Distributed Tracing {#dotnet-distributedtracing}
+
+{% include draft.html content="Guidance coming soon ..." %}
 
 ### Documentation {#dotnet-documentation}
 
@@ -1080,3 +1068,24 @@ var client = new ConfigurationClient(connectionString);
 ````
 
 {% include requirement/MUST id="dotnet-samples-build" %} make sure all the samples build and run as part of the CI process.
+
+## Commonly Overlooked .NET API Design Guidelines {#dotnet-appendix-overlookedguidelines}
+
+Some .NET Design Guidelines have been notoriously overlooked in existing Azure SDKs. This section serves as a way to highlight these guidelines.
+
+{% include requirement/SHOULDNOT id="dotnet-problems-too-many-types" %} have many types in the main namespace. Number of types is directly proportional to the perceived complexity of a library.
+
+{% include requirement/MUSTNOT id="dotnet-problems-abstractions" %} use abstractions unless the Azure SDK both returns and consumes the abstraction.  An abstraction is either an interface or abstract class.
+
+{% include requirement/MUSTNOT id="dotnet-problems-interfaces" %} use interfaces if you can use abstract classes. The only reasons to use an interface are: a) you need to "multiple-inherit", b) you want structs to implement an abstraction.
+
+{% include requirement/MUSTNOT id="dotnet-problems-generic-words" %} use generic words and terms for type names.  For example, do not use names like `OperationResponse` or `DataCollection`.
+
+{% include requirement/SHOULDNOT id="dotnet-problems-valid-values" %} use parameter types where it's not clear what valid values are supported.  For example, do not use strings but only accept certain values in the string.
+
+{% include requirement/MUSTNOT id="dotnet-problems-empty-types" %} have empty types (types with no members).
+
+<!-- Links -->
+
+{% include refs.md %}
+{% include_relative refs.md %}
