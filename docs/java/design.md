@@ -946,8 +946,6 @@ There are two annotations of note that should be applied on model classes, when 
 * The `@Fluent` annotation is given to all model classes that are expected to provide a fluent API to end users.
 * The `@Immutable` annotation is given to all immutable classes.
 
-
-
 ## Azure SDK Library Design
 
 ### Namespaces
