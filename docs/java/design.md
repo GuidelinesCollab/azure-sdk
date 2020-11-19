@@ -6,114 +6,75 @@ folder: java
 sidebar: general_sidebar
 ---
 
+## Introduction
+
+The Java guidelines are for the benefit of client library designers targeting service applications written in Java.  If you are a client library designer that is targeting Android mobile apps, refer to the [Android Guidelines](android_introduction.html) instead.
+
+### Design principles
+
+The Azure SDK should be designed to enhance the productivity of developers connecting to Azure services. Other qualities (such as completeness, extensibility, and performance) are important but secondary. Productivity is achieved by adhering to the principles described below:
+
+#### Idiomatic
+
+* The SDK should follow the general design guidelines and conventions for the target language. It should feel natural to a developer in the target language.
+* We embrace the ecosystem with its strengths and its flaws.
+* We work with the ecosystem to improve it for all developers.
+
+#### Consistent
+
+* Client libraries should be consistent within the language, consistent with the service and consistent between all target languages. In cases of conflict, consistency within the language is the highest priority and consistency between all target languages is the lowest priority.
+* Service-agnostic concepts such as logging, HTTP communication, and error handling should be consistent. The developer should not have to relearn service-agnostic concepts as they move between client libraries.
+* Consistency of terminology between the client library and the service is a good thing that aids in diagnosability.
+* All differences between the service and client library must have a good (articulated) reason for existing, rooted in idiomatic usage rather than whim.
+* The Azure SDK for each target language feels like a single product developed by a single team.
+* There should be feature parity across target languages. This is more important than feature parity with the service.
+
+#### Approachable
+
+* We are experts in the supported technologies so our customers, the developers, don't have to be.
+* Developers should find great documentation (hero tutorial, how to articles, samples, and API documentation) that makes it easy to be successful with the Azure service.
+* Getting off the ground should be easy through the use of predictable defaults that implement best practices. Think about progressive concept disclosure.
+* The SDK should be easily acquired through the most normal mechanisms in the target language and ecosystem.
+* Developers can be overwhelmed when learning new service concepts. The core use cases should be discoverable.
+
+#### Diagnosable
+
+* The developer should be able to understand what is going on.
+* It should be discoverable when and under what circumstances a network call is made.
+* Defaults are discoverable and their intent is clear.
+* Logging, tracing, and exception handling are fundamental and should be thoughtful.
+* Error messages should be concise, correlated with the service, actionable, and human readable. Ideally, the error message should lead the consumer to a useful action that they can take.
+* Integrating with the preferred debugger for the target language should be easy.
+
+#### Dependable
+
+* Breaking changes are more harmful to a user's experience than most new features and improvements are beneficial.
+* Incompatibilities should never be introduced deliberately without thorough review and very strong justification.
+* Do not rely on dependencies that can force our hand on compatibility.
+
+### General Guidelines
+
+{% include requirement/MUST id="java-general-follow-general-guidelines" %} follow the [General Azure SDK Guidelines].
+
+{% include requirement/MUST id="java-general-repository" %} locate all source code in the [azure/azure-sdk-for-java] GitHub repository.
+
+{% include requirement/MUST id="java-general-engsys" %} follow Azure SDK engineering systems guidelines for working in the [azure/azure-sdk-for-java] GitHub repository.
+
+## Azure SDK API Design
+
 The API surface of your client library must have the most thought as it is the primary interaction that the consumer has with your service.
 
-## Namespaces
-
-Java uses packages to group related types.  Grouping services within a cloud infrastructure is common since it aids discoverability and provides structure to the reference documentation.
-
-In Java, the namespace should be named `com.azure.<group>.<service>[.<feature>]`.  All consumer-facing APIs that are commonly used should exist within this package structure.  Here:
-
-- `<group>` is the group for the service (see the list above)
-- `<service>` is the service name represented as a single word
-- `<feature>` is an optional subpackage to break services into separate components (for example, storage may have `.blob`, `.files`, and `.queues`)
-
-{% include requirement/MUST id="java-namespaces-prefix" %} start the package with `com.azure` to indicate an Azure client library.
-
-{% include requirement/MUST id="java-namespaces-format" %} construct the package name with all lowercase letters (no camel case is allowed), without spaces, hyphens, or underscores. For example, Azure Key Vault would be in `com.azure.security.keyvault` - note that the two words 'Key' and 'Vault' are brought together to `keyvault`, instead of `keyVault`, `key_vault`, or `key-vault`.  It may further be shortened if the shortened version is well known in the community.  For example, "Azure Media Analytics" would have a compressed service name of `mediaanalytics`, and "Azure Service Bus" would become `servicebus`.
-
-{% include requirement/MUST id="java-namespaces-package-name" %} pick a package name that allows the consumer to tie the package to the service being used. The package does **NOT** change when the branding of the product changes.  Avoid the use of marketing names that may change.
-
-{% include requirement/MUST id="java-namespaces-approved-list" %} use the following list as the group of services:
-
-{% include tables/data_namespaces.md %}
-
-If the client library does not seem to fit into the group list, contact the [Architecture Board] to discuss the namespace requirements.
-
-{% include requirement/MUST id="java-namespaces-management" %} place the management (Azure Resource Manager) API in the `management` group.  Use the grouping `<AZURE>.management.<group>.<service>` for the namespace. Since more services require control plane APIs than data plane APIs, other namespaces may be used explicitly for control plane only.  Data plane usage is by exception only.  Additional namespaces that can be used for control plane SDKs include:
-
-{% include tables/mgmt_namespaces.md %}
-
-Many `management` APIs do not have a data plane because they deal with management of the Azure account. Place the management library in the `com.azure.management` namespace.  For example, use `com.azure.management.costanalysis` instead of `com.azure.management.management.costanalysis`.
-
-{% include requirement/MUSTNOT id="java-namespaces-ambiguity" %} choose similar names for clients that do different things.
-
-{% include requirement/MUST id="java-namespaces-registration" %} register the chosen namespace with the [Architecture Board].  Open an issue to request the namespace.  See [the registered namespace list](registered_namespaces.html) for a list of the currently registered namespaces.
-
-### Example Namespaces
-
-Here are some examples of namespaces that meet these guidelines:
-
-- `com.azure.data.cosmos`
-- `com.azure.identity.activedirectory`
-- `com.azure.iot.deviceprovisioning`
-- `com.azure.storage.blob`
-- `com.azure.messaging.notificationhubs` (the client library for Notification Hubs)
-- `com.azure.management.messaging.notificationhubs` (the management library for Notification Hubs)
-
-Here are some namespaces that do not meet the guidelines:
-
-- `com.microsoft.azure.cosmosdb` (not in the `com.azure` namespace and does not use grouping)
-- `com.azure.mixedreality.kinect` (the grouping is not in the approved list)
-
-{% include requirement/MUSTNOT id="java-namespaces-implementation" %} allow implementation code (that is, code that doesn't form part of the public API) to be mistaken as public API. There are two valid arrangements for implementation code:
-
-1. Implementation classes can be placed within a subpackage named `implementation`.
-2. Implementation classes can be made package-private and placed within the same package as the consuming class.
-
-CheckStyle checks ensure that classes within an `implementation` package aren't exposed through public API.
-
-### Maven
-
-All client libraries for Java standardize on the Maven build tooling for build and dependency management. This section details the standard configuration that must be used in all client libraries.
-
-{% include requirement/MUST id="java-maven-pom" %} ship a maven pom.xml for each client library, or for each module within that client library (e.g. Storage might have one each for blob, queue, and file).
-
-{% include requirement/MUST id="java-maven-groupid" %} specify the `groupId` as `com.azure`.
-
-{% include requirement/MUST id="java-maven-artifactid" %} specify the `artifactId` to be of the form `azure-<group>-<service>`, for example, `azure-storage-blob`. In cases where the client library has multiple children modules, set the root POM `artifactId` to be of the form `azure-<group>-<service>-parent`.
-
-{% include requirement/MUST id="java-maven-name" %} specify the `name` element to take the form `Microsoft Azure client library for <service name>`.
-
-{% include requirement/MUST id="java-maven-description" %} specify the `description` element to be a slightly longer statement along the lines of `This package contains the Microsoft Azure <service> client library`.
-
-{% include requirement/MUST id="java-maven-url" %} specify the `url` element to point to the root of the GitHub repository (i.e. `https://github.com/Azure/azure-sdk-for-java`).
-
-{% include requirement/MUST id="java-maven-url" %} specify the source code management section, to specify where the source code resides for the client library. If the source code is located in the https://github.com/Azure/azure-sdk-for-java repository, then the following form must be used:
-
-```
-<scm>
-    <url>scm:git:https://github.com/Azure/azure-sdk-for-java</url>
-    <connection>scm:git:git@github.com:Azure/azure-sdk-for-java.git</connection>
-    <tag>HEAD</tag>
-</scm>
-```
-
-{% include requirement/MUSTNOT id="java-maven-developers" %} change the `developers` section of the POM file - it must only list a developer `id` of `microsoft` and a `name` of `Microsoft Corporation`.
-
-### Modules
-
-Java 9 and later support the notion of a module. A module *exports* certain packages, and *requires* other modules. Any package that is exported can be used by other modules, and anything that is not exported is invisible at compile and run times. This is a far stronger form of encapsulation than has existed previously for Java. For the Azure SDK for Java, a client library will be repesented as one or more modules. Two good resources to understand modules are available on [oracle.com](https://www.oracle.com/corporate/features/understanding-java-9-modules.html) and [baeldung.com](https://www.baeldung.com/java-9-modularity).
-
-{% include requirement/MUST id="java-module-info" %} include a `module-info.java` file for each module you ship.
-
-{% include requirement/MUST id="java-module-name" %} name your module based on the root package of the client library it represents. For example, `com.azure.core` or `com.azure.storage.blob`.
-
-{% include requirement/MUST id="java-module-requires" %} require only the minimum set of modules relevant for the module being developed.
-
-{% include requirement/MUST id="java-module-exports" %} export only packages that are considered public API. In particular, do **not** export packages that are in the `implementation` package namespace, as these, by convention, are not intended for public use.
-
-{% include requirement/MUSTNOT id="java-module-no-conditional-exports" %} conditionally `export` or `opens` packages to other modules without prior approval by the architecture board. A conditional `export` or `opens` statement takes the form `export X to Y` or `opens X to Y`.
-
-{% include requirement/MUSTNOT id="java-module-split-packages" %} have the same package in multiple modules. That is, do not have `com.azure.storage.blob` in module `com.azure.storage.blob` and in module `com.azure.storage.blob.extras`. It is however allowed to have different packages with common parent packages split across different modules. For example, a package named `com.azure.storage` can be in one module, and `com.azure.storage.blob` can be in another.
-
-## Client interface
+### The Service Client
 
 Your API surface consists of one or more _service clients_ that the consumer will instantiate to connect to your service, plus a set of supporting types.
 
-{% include requirement/MUST id="java-client-naming" %} name service client types with the _Client_ suffix.
+{% include requirement/MUST id="java-service-client-name" %} name service client types with the _Client_ suffix (for example, `ConfigurationClient`).
 
-{% include requirement/MUST id="java-client-namespace" %} place service client types that the consumer is most likely to interact with in the root package of the client library (for example, `com.azure.<group>.servicebus`).  Specialized service clients should be placed in subpackages.
+{% include requirement/MUST id="java-service-client-annotation" %} annotate all service clients with the `@ServiceClient` annotation.
+
+{% include requirement/MUST id="java-service-client-immutable" %} ensure that all service client classes are immutable upon instantiation.
+
+{% include requirement/MUST id="java-service-client-namespace" %} place service clients in the root package of their corresponding client library (for example, `com.azure.storage.blob.BlobClient`, as `com.azure.storage.blob` is considered the root package in this example).
 
 {% include requirement/MUST id="java-client-construction" %} allow the consumer to construct a service client with the minimal information needed to connect and authenticate to the service.
 
@@ -123,7 +84,276 @@ We speak about using the client library in a cross-language manner within outbou
 
 {% include requirement/MUST id="java-client-feature-support" %} support 100% of the features provided by the Azure service the client library represents. Gaps in functionality cause confusion and frustration among developers.
 
-## Service API versions
+{% include requirement/MUST id="java-service-client-method-naming" %} use standard JavaBean naming prefixes for all getters and setters that are not service methods.
+
+{% include requirement/MUST id="java-sync-client-shape" %} follow the basic shape outlined below for all synchronous service clients:
+
+```java
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package com.azure.<group>.<service_name>;
+
+@ServiceClient(
+    builder = <service_name>ClientBuilder.class,
+    serviceInterfaces = <service_name>Service.class)
+public final class <service_name>Client {
+
+    // internally, sync API can defer to async API with sync-over-async
+    private final <service_name>AsyncClient client;
+
+    // package-private constructors only - all instantiation is done with builders
+    <service_name>Client(<service_name>AsyncClient client) {
+        this.client = client;
+    }
+
+    // service methods...
+
+    // A single response API
+    public Response<<model>> <service_operation>(<parameters>) {
+        // deferring to async client internally
+        return client.<service_operation>(<parameters>).block();
+    }
+
+    // A non-paginated sync list API (refer to pagination section for more details)
+    public IterableStream<<model>> list<service_operation>(<parameters>) {
+        // ...
+    }
+
+    // A paginated sync list API (refer to pagination section for more details)
+    public PagedIterable<<model>> list<service_operation>(<parameters>) {
+        // ...
+    }
+
+    // other members
+    …
+}
+```
+
+Refer to the [ConfigurationClient class] for a fully built-out example of how a sync client should be constructed.
+
+{% include requirement/MUST id="java-async-client-shape" %} follow the basic shape outlined below for all asynchronous service clients:
+
+```java
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package com.azure.<group>.<service_name>;
+
+@ServiceClient(
+    builder = <service_name>ClientBuilder.class,
+    serviceInterfaces = <service_name>Service.class,
+    isAsync = true)
+public final class <service_name>AsyncClient {
+
+    // package-private constructors only - all instantiation is done with builders
+    <service_name>Client(<parameters>, HttpPipeline pipeline) {
+        super(pipeline);
+    }
+
+    // service methods...
+
+    // A single response API
+    public Mono<Response<<model>>> <service_operation>(<parameters>) {
+        ...
+    }
+
+    // A paginated response API
+    public PagedFlux<<model>> list<service_operation>(<parameters>) {
+        ...
+    }
+
+    // other members
+    ...
+}
+```
+
+Refer to the [ConfigurationAsyncClient class] for a fully built-out example of how an async client should be constructed.
+
+{% include requirement/MUST id="java-service-client-fluent-builder" %} offer a fluent builder API for constructing service clients named `<service_name>ClientBuilder`, which must support building a sync service client instance and an async service client instance (where appropriate). It must offer `buildClient()` and `buildAsyncClient()` API to create a synchronous and asynchronous service client instance, respectively:
+
+```java
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package com.azure.<group>.<service_name>;
+
+@ServiceClientBuilder(serviceClients = {<service_name>Client.class, <service_name>AsyncClient.class})
+public final class <service_name>ClientBuilder {
+
+    // private fields for all settable parameters
+    ...
+
+    // public constructor - this is the only available front door to creating a service client instance
+    public <service_name>ClientBuilder() {
+        builder = <service_name>AsyncClient.builder();
+    }
+
+    // The buildClient() method returns a new instance of the sync client each time it is called
+    public <service_name>Client buildClient() {
+        // create an async client and pass that into the sync client for sync-over-async impl
+        return new <service_name>Client(buildAsync());
+    }
+
+    // The buildAsyncClient() method returns a new instance of the async client each time it is called
+    public <service_name>Client buildAsyncClient() {
+        // configuration of pipeline, etc
+        ...
+
+        // instantiate new async client instance
+        return new <service_name>AsyncClient(serviceEndpoint, pipeline);
+    }
+
+    // fluent API, each returning 'this', and one for each parameter to configure
+    public <service_name>ClientBuilder <property>(<parameter>) {
+        builder.<property>(<parameter>);
+        return this;
+    }
+}
+```
+
+#### Sync and Async Clients
+
+#### Service Client Constructors
+
+{% include requirement/MUSTNOT id="java-service-client-constructors" %} provide any `public` or `protected` constructors in the service client, except where necessary to support mock testing. Keep visibility to a minimum.
+
+#### Service Methods
+
+{% include requirement/MUST id="java-service-client-fluent-builder-multiple-clients" %} offer build method 'overloads' for when a builder can build multiple client types. These methods must be named in the form `build<client>Client()` and `build<client>AsyncClient()`. For example, `buildBlobClient()` and `buildBlobAsyncClient()`.
+
+{% include requirement/MUST id="java-service-client-builder-annotation" %} annotate service client builders with the `@ServiceClientBuilder` annotation.
+
+{% include requirement/MUST id="java-service-client-builder-consistency" %} ensure consistency across all HTTP-based client libraries, by using the following names for client builder fluent API:
+
+| Name                 | Intent                                                                                                 |
+|----------------------|--------------------------------------------------------------------------------------------------------|
+| `addPolicy`          | Adds a policy to the set of existing policies (assumes no custom pipeline is set).                     |
+| `buildAsyncClient`   | Creates a new **async** client on each call.                                                           |
+| `buildClient`        | Creates a new **sync** client on each call.                                                            |
+| `configuration`      | Sets the configuration store that is used during construction of the service client.                   |
+| `credential`         | Sets the credential to use when authenticating HTTP requests.                                          |
+| `connectionString`   | Sets the connection string to use for (only applicable if the Azure portal offers it for the service). |
+| `endpoint`           | URL to send HTTP requests to.                                                                          |
+| `httpClient`         | Sets the HTTP client to use.                                                                           |
+| `httpLogOptions`     | Configuration for HTTP logging level, header redaction, etc.                                           |
+| `pipeline`           | Sets the HTTP pipeline to use.                                                                         |
+| `serviceVersion`     | Sets the [service version](#versioning) to use. This must be a type implementing `ServiceVersion`.     |
+
+`endpoint` may be renamed if a more user-friendly name can be justified. For example, a blob storage library developer may consider using `new BlobClientBuilder.blobUrl(..)`. In this case, the `endpoint` API should be removed.
+
+{% include requirement/MUST id="java-service-client-builder-consistency-amqp" %} ensure consistency across all AMQP-based client libraries, by using the following names for client builder fluent API:
+
+| Name                       | Intent                                                                                                 |
+|----------------------------|--------------------------------------------------------------------------------------------------------|
+| `build<Type>AsyncClient`   | Creates a new **async** client on each call.                                                           |
+| `build<Type>Client`        | Creates a new **sync** client on each call.                                                            |
+| `configuration`            | Sets the configuration store that is used during construction of the service client.                   |
+| `credential`               | Sets the credential to use when authenticating AMQP requests.                                          |
+| `connectionString`         | Sets the connection string to use for (only applicable if the Azure portal offers it for the service). |
+| `transportType`            | Sets the preferred transport type to AMQP or Web Sockets that the client should use.                   |
+| `retry`                    | Sets the retry policy to use.                                                                          |
+| `proxyOptions`             | Sets the proxy connection settings.                                                                    |
+
+{% include requirement/MUST id="java-service-client-builder-precedence" %} use the following precedence rules for builder arguments:
+
+1. If the user sets a non-null `pipeline`, all other settings related to construction and configuration of a pipeline are ignored. The provided pipeline is used as-is.
+2. If the user sets a `connectionString` and a `credential`, the `credential` will take precedence and the `connectionString` must be ignored.
+
+Supporting common precedence rules ensures consistency across client libraries.
+
+{% include requirement/MUST id="java-service-client-builder-state" %} throw an `IllegalStateException` from the builder method when it receives mutually exclusive arguments.  The consumer is over-specifying builder arguments, some of which will necessarily be ignored. The error message in the exception must clearly outline the issue.
+
+{% include requirement/MUST id="java-service-client-builder-validity" %} ensure the builder will instantiate a service client into a valid state.  Throw validation exceptions during fluent property calls, or as part of the `build*()` calls.
+
+{% include requirement/MUSTNOT id="java-service-client-builder-leakage" %} leak the underlying protocol transport implementation details to the consumer.  All types from the protocol transport implementation must be appropriately abstracted.
+
+{% include requirement/MUST id="java-service-client-vend-prefix" %} prefix methods that create or vend subclients with `get` and suffix with `Client` or `AsyncClient` for sync and async subclients respectively (for example, `container.getBlobClient()` or `container.getBlobAsyncClient()`).
+
+#### Service method parameters
+
+Service methods fall into two main groups when it comes to the number and complexity of parameters they accept:
+
+- Service Methods with simple inputs, _simple methods_ for short
+- Service Methods with complex inputs, _complex methods_ for short
+
+_Simple methods_ are methods that take up to six parameters, with most of the parameters being simple primitive types. _Complex methods_ are methods that take a larger number of parameters and typically correspond to REST APIs with complex request payloads.
+
+_Simple methods_ should follow standard Java best practices for parameter list and overload design.
+
+_Complex methods_ should introduce an _option parameter_ to represent the request payload. Consideration can subsequently be made for providing simpler convenience overloads for the most common scenarios.
+
+```java
+public class BlobContainerClient {
+
+    // simple service methods
+    public BlobInfo uploadBlob(String blobName, byte[] content);
+    public Response<BlobInfo> uploadBlobWithResponse(String blobName, byte[] content, Context context);
+
+    // complex service methods
+    public BlobInfo createBlob(CreateBlobOptions options);
+    public Response<BlobInfo> createBlobWithResponse(CreateBlobOptions options, Context context);
+
+    // convenience overload[s]
+    public BlobInfo createBlob(String blobName);
+}
+
+@Fluent
+public class CreateBlobOptions {
+    private String blobName;
+    private PublicAccessType access;
+    private Map<String, String> metadata;
+
+    // Constructor enforces the requirement that blobName is always set
+    public CreateBlobOptions(String blobName) {
+        this.blobName = blobName;
+    }
+
+    public String getBlobName() {
+        return blobName;
+    }
+
+    public CreateBlobOptions setAccess(PublicAccessType access) {
+        this.access = access;
+        return this;
+    }
+
+    public PublicAccessType getAccess() {
+        return access;
+    }
+
+    public CreateBlobOptions setMetadata(Map<String, String> metadata) {
+        this.metadata = metadata;
+        return this;
+    }
+
+    public Map<String, String> getMetadata() {
+        return metadata;
+    }
+}
+```
+
+{% include requirement/MUST id="java-params-complex-naming" %} name the _options_ type after the name of the service method it is used for, such that the type is named `<operation>Options`. For example, above the method was `createBlob`, and so the _options_ type was named `CreateBlobOptions`.
+
+{% include requirement/MUST id="java-params-complex" %} use the _options_ parameter pattern for complex service methods.
+
+{% include requirement/MAY id="java-params-complex-growth" %} use the _options_ parameter pattern for simple service methods that you expect to `grow` in the future.
+
+{% include requirement/MAY id="java-params-complex-overloads" %} add simple overloads of methods using the _options_ parameter pattern.
+
+If in common scenarios, users are likely to pass just a small subset of what the _options_ parameter represents, consider adding an overload with a parameter list representing just this subset.
+
+{% include requirement/MUSTNOT id="java-params-complex-overloads" %} introduce method overloads that take a subset of the parameters as well as the _options_ parameter. _Option_ parameters must be the only argument to a method, apart from the `Context` type, which must continue to be outside the _options_ type.
+
+{% include requirement/MUST id="java-params-complex-withResponse" %} use the _options_ parameter type, if it exists, for all `*WithResponse` methods. If no _options_ parameter type exists, do not create one solely for the `*WithResponse` method.
+
+{% include requirement/MUST id="java-params-options-package" %} place all options types in a root-level `options` package, to make options types distinct from service clients and model types.
+
+{% include requirement/MUST id="java-params-options-design" %} design options types with the same design guidance as given below for model class types, namely fluent setters for optional arguments, using the standard JavaBean naming convention of `get*`, `set*`, and `is*`. Additionally, there may be constructor overloads for each combination of required arguments.
+
+{% include requirement/MAY id="java-params-options-ctor" %} introduce constructor overloads for each combination of required arguments.
+
+### Service API versions
 
 The purposes of the client library is to communicate with an Azure service.  Azure services support multiple API versions.  To understand the capabilities of the service, the client library must be able to support multiple service API versions.
 
@@ -514,196 +744,6 @@ Consumers will use one or more _service clients_ to access Azure services, plus 
 
 {% include requirement/MUSTNOT id="java-sync-cancellation" %} provide a sync API that accepts a cancellation token. Cancellation isn't a common pattern in Java.  Developers who need to cancel requests should use the async API instead.
 
-## Service clients
-
-{% include requirement/MUST id="java-service-client-name" %} name service client types with the _Client_ suffix (for example, `ConfigurationClient`).
-
-{% include requirement/MUST id="java-service-client-annotation" %} annotate all service clients with the `@ServiceClient` annotation.
-
-{% include requirement/MUST id="java-service-client-namespace" %} place service clients in the root package of their corresponding client library (for example, `com.azure.storage.blob.BlobClient`, as `com.azure.storage.blob` is considered the root package in this example).
-
-{% include requirement/MUST id="java-service-client-immutable" %} ensure that all service client classes are immutable upon instantiation.
-
-{% include requirement/MUSTNOT id="java-service-client-constructors" %} provide any `public` or `protected` constructors in the service client, except where necessary to support mock testing. Keep visibility to a minimum.
-
-{% include requirement/MUST id="java-service-client-method-naming" %} use standard JavaBean naming prefixes for all getters and setters that are not service methods.
-
-{% include requirement/MUST id="java-sync-client-shape" %} follow the basic shape outlined below for all synchronous service clients:
-
-```java
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
-package com.azure.<group>.<service_name>;
-
-@ServiceClient(
-    builder = <service_name>ClientBuilder.class,
-    serviceInterfaces = <service_name>Service.class)
-public final class <service_name>Client {
-
-    // internally, sync API can defer to async API with sync-over-async
-    private final <service_name>AsyncClient client;
-
-    // package-private constructors only - all instantiation is done with builders
-    <service_name>Client(<service_name>AsyncClient client) {
-        this.client = client;
-    }
-
-    // service methods...
-
-    // A single response API
-    public Response<<model>> <service_operation>(<parameters>) {
-        // deferring to async client internally
-        return client.<service_operation>(<parameters>).block();
-    }
-
-    // A non-paginated sync list API (refer to pagination section for more details)
-    public IterableStream<<model>> list<service_operation>(<parameters>) {
-        // ...
-    }
-
-    // A paginated sync list API (refer to pagination section for more details)
-    public PagedIterable<<model>> list<service_operation>(<parameters>) {
-        // ...
-    }
-
-    // other members
-    …
-}
-```
-
-Refer to the [ConfigurationClient class] for a fully built-out example of how a sync client should be constructed.
-
-{% include requirement/MUST id="java-async-client-shape" %} follow the basic shape outlined below for all asynchronous service clients:
-
-```java
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
-package com.azure.<group>.<service_name>;
-
-@ServiceClient(
-    builder = <service_name>ClientBuilder.class,
-    serviceInterfaces = <service_name>Service.class,
-    isAsync = true)
-public final class <service_name>AsyncClient {
-
-    // package-private constructors only - all instantiation is done with builders
-    <service_name>Client(<parameters>, HttpPipeline pipeline) {
-        super(pipeline);
-    }
-
-    // service methods...
-
-    // A single response API
-    public Mono<Response<<model>>> <service_operation>(<parameters>) {
-        ...
-    }
-
-    // A paginated response API
-    public PagedFlux<<model>> list<service_operation>(<parameters>) {
-        ...
-    }
-
-    // other members
-    ...
-}
-```
-
-Refer to the [ConfigurationAsyncClient class] for a fully built-out example of how an async client should be constructed.
-
-{% include requirement/MUST id="java-service-client-fluent-builder" %} offer a fluent builder API for constructing service clients named `<service_name>ClientBuilder`, which must support building a sync service client instance and an async service client instance (where appropriate). It must offer `buildClient()` and `buildAsyncClient()` API to create a synchronous and asynchronous service client instance, respectively:
-
-```java
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
-package com.azure.<group>.<service_name>;
-
-@ServiceClientBuilder(serviceClients = {<service_name>Client.class, <service_name>AsyncClient.class})
-public final class <service_name>ClientBuilder {
-
-    // private fields for all settable parameters
-    ...
-
-    // public constructor - this is the only available front door to creating a service client instance
-    public <service_name>ClientBuilder() {
-        builder = <service_name>AsyncClient.builder();
-    }
-
-    // The buildClient() method returns a new instance of the sync client each time it is called
-    public <service_name>Client buildClient() {
-        // create an async client and pass that into the sync client for sync-over-async impl
-        return new <service_name>Client(buildAsync());
-    }
-
-    // The buildAsyncClient() method returns a new instance of the async client each time it is called
-    public <service_name>Client buildAsyncClient() {
-        // configuration of pipeline, etc
-        ...
-
-        // instantiate new async client instance
-        return new <service_name>AsyncClient(serviceEndpoint, pipeline);
-    }
-
-    // fluent API, each returning 'this', and one for each parameter to configure
-    public <service_name>ClientBuilder <property>(<parameter>) {
-        builder.<property>(<parameter>);
-        return this;
-    }
-}
-```
-
-{% include requirement/MUST id="java-service-client-fluent-builder-multiple-clients" %} offer build method 'overloads' for when a builder can build multiple client types. These methods must be named in the form `build<client>Client()` and `build<client>AsyncClient()`. For example, `buildBlobClient()` and `buildBlobAsyncClient()`.
-
-{% include requirement/MUST id="java-service-client-builder-annotation" %} annotate service client builders with the `@ServiceClientBuilder` annotation.
-
-{% include requirement/MUST id="java-service-client-builder-consistency" %} ensure consistency across all HTTP-based client libraries, by using the following names for client builder fluent API:
-
-| Name                 | Intent                                                                                                 |
-|----------------------|--------------------------------------------------------------------------------------------------------|
-| `addPolicy`          | Adds a policy to the set of existing policies (assumes no custom pipeline is set).                     |
-| `buildAsyncClient`   | Creates a new **async** client on each call.                                                           |
-| `buildClient`        | Creates a new **sync** client on each call.                                                            |
-| `configuration`      | Sets the configuration store that is used during construction of the service client.                   |
-| `credential`         | Sets the credential to use when authenticating HTTP requests.                                          |
-| `connectionString`   | Sets the connection string to use for (only applicable if the Azure portal offers it for the service). |
-| `endpoint`           | URL to send HTTP requests to.                                                                          |
-| `httpClient`         | Sets the HTTP client to use.                                                                           |
-| `httpLogOptions`     | Configuration for HTTP logging level, header redaction, etc.                                           |
-| `pipeline`           | Sets the HTTP pipeline to use.                                                                         |
-| `serviceVersion`     | Sets the [service version](#versioning) to use. This must be a type implementing `ServiceVersion`.     |
-
-`endpoint` may be renamed if a more user-friendly name can be justified. For example, a blob storage library developer may consider using `new BlobClientBuilder.blobUrl(..)`. In this case, the `endpoint` API should be removed.
-
-{% include requirement/MUST id="java-service-client-builder-consistency-amqp" %} ensure consistency across all AMQP-based client libraries, by using the following names for client builder fluent API:
-
-| Name                       | Intent                                                                                                 |
-|----------------------------|--------------------------------------------------------------------------------------------------------|
-| `build<Type>AsyncClient`   | Creates a new **async** client on each call.                                                           |
-| `build<Type>Client`        | Creates a new **sync** client on each call.                                                            |
-| `configuration`            | Sets the configuration store that is used during construction of the service client.                   |
-| `credential`               | Sets the credential to use when authenticating AMQP requests.                                          |
-| `connectionString`         | Sets the connection string to use for (only applicable if the Azure portal offers it for the service). |
-| `transportType`            | Sets the preferred transport type to AMQP or Web Sockets that the client should use.                   |
-| `retry`                    | Sets the retry policy to use.                                                                          |
-| `proxyOptions`             | Sets the proxy connection settings.                                                                    |
-
-{% include requirement/MUST id="java-service-client-builder-precedence" %} use the following precedence rules for builder arguments:
-
-1. If the user sets a non-null `pipeline`, all other settings related to construction and configuration of a pipeline are ignored. The provided pipeline is used as-is.
-2. If the user sets a `connectionString` and a `credential`, the `credential` will take precedence and the `connectionString` must be ignored.
-
-Supporting common precedence rules ensures consistency across client libraries.
-
-{% include requirement/MUST id="java-service-client-builder-state" %} throw an `IllegalStateException` from the builder method when it receives mutually exclusive arguments.  The consumer is over-specifying builder arguments, some of which will necessarily be ignored. The error message in the exception must clearly outline the issue.
-
-{% include requirement/MUST id="java-service-client-builder-validity" %} ensure the builder will instantiate a service client into a valid state.  Throw validation exceptions during fluent property calls, or as part of the `build*()` calls.
-
-{% include requirement/MUSTNOT id="java-service-client-builder-leakage" %} leak the underlying protocol transport implementation details to the consumer.  All types from the protocol transport implementation must be appropriately abstracted.
-
-{% include requirement/MUST id="java-service-client-vend-prefix" %} prefix methods that create or vend subclients with `get` and suffix with `Client` or `AsyncClient` for sync and async subclients respectively (for example, `container.getBlobClient()` or `container.getBlobAsyncClient()`).
-
 ## Common service client patterns
 
 {% include requirement/MUST id="java-service-client-verbs" %} prefer the use of the following terms for CRUD operations:
@@ -738,89 +778,6 @@ getFoo(a, Context)
 ```
 
 Don't include overloads that take `Context` in async clients.  Async clients use the [subscriber context built into Reactor Flux and Mono APIs][reactor-context].
-
-## Service method parameters
-
-Service methods fall into two main groups when it comes to the number and complexity of parameters they accept:
-
-- Service Methods with simple inputs, _simple methods_ for short
-- Service Methods with complex inputs, _complex methods_ for short
-
-_Simple methods_ are methods that take up to six parameters, with most of the parameters being simple primitive types. _Complex methods_ are methods that take a larger number of parameters and typically correspond to REST APIs with complex request payloads.
-
-_Simple methods_ should follow standard Java best practices for parameter list and overload design.
-
-_Complex methods_ should introduce an _option parameter_ to represent the request payload. Consideration can subsequently be made for providing simpler convenience overloads for the most common scenarios.
-
-```java
-public class BlobContainerClient {
-
-    // simple service methods
-    public BlobInfo uploadBlob(String blobName, byte[] content);
-    public Response<BlobInfo> uploadBlobWithResponse(String blobName, byte[] content, Context context);
-
-    // complex service methods
-    public BlobInfo createBlob(CreateBlobOptions options);
-    public Response<BlobInfo> createBlobWithResponse(CreateBlobOptions options, Context context);
-
-    // convenience overload[s]
-    public BlobInfo createBlob(String blobName);
-}
-
-@Fluent
-public class CreateBlobOptions {
-    private String blobName;
-    private PublicAccessType access;
-    private Map<String, String> metadata;
-
-    // Constructor enforces the requirement that blobName is always set
-    public CreateBlobOptions(String blobName) {
-        this.blobName = blobName;
-    }
-
-    public String getBlobName() {
-        return blobName;
-    }
-
-    public CreateBlobOptions setAccess(PublicAccessType access) {
-        this.access = access;
-        return this;
-    }
-
-    public PublicAccessType getAccess() {
-        return access;
-    }
-
-    public CreateBlobOptions setMetadata(Map<String, String> metadata) {
-        this.metadata = metadata;
-        return this;
-    }
-
-    public Map<String, String> getMetadata() {
-        return metadata;
-    }
-}
-```
-
-{% include requirement/MUST id="java-params-complex-naming" %} name the _options_ type after the name of the service method it is used for, such that the type is named `<operation>Options`. For example, above the method was `createBlob`, and so the _options_ type was named `CreateBlobOptions`.
-
-{% include requirement/MUST id="java-params-complex" %} use the _options_ parameter pattern for complex service methods.
-
-{% include requirement/MAY id="java-params-complex-growth" %} use the _options_ parameter pattern for simple service methods that you expect to `grow` in the future.
-
-{% include requirement/MAY id="java-params-complex-overloads" %} add simple overloads of methods using the _options_ parameter pattern.
-
-If in common scenarios, users are likely to pass just a small subset of what the _options_ parameter represents, consider adding an overload with a parameter list representing just this subset.
-
-{% include requirement/MUSTNOT id="java-params-complex-overloads" %} introduce method overloads that take a subset of the parameters as well as the _options_ parameter. _Option_ parameters must be the only argument to a method, apart from the `Context` type, which must continue to be outside the _options_ type.
-
-{% include requirement/MUST id="java-params-complex-withResponse" %} use the _options_ parameter type, if it exists, for all `*WithResponse` methods. If no _options_ parameter type exists, do not create one solely for the `*WithResponse` method.
-
-{% include requirement/MUST id="java-params-options-package" %} place all options types in a root-level `options` package, to make options types distinct from service clients and model types.
-
-{% include requirement/MUST id="java-params-options-design" %} design options types with the same design guidance as given below for model class types, namely fluent setters for optional arguments, using the standard JavaBean naming convention of `get*`, `set*`, and `is*`. Additionally, there may be constructor overloads for each combination of required arguments.
-
-{% include requirement/MAY id="java-params-options-ctor" %} introduce constructor overloads for each combination of required arguments.
 
 ## Model classes
 
@@ -989,7 +946,111 @@ There are two annotations of note that should be applied on model classes, when 
 * The `@Fluent` annotation is given to all model classes that are expected to provide a fluent API to end users.
 * The `@Immutable` annotation is given to all immutable classes.
 
-## Versioning
+
+
+## Azure SDK Library Design
+
+### Namespaces
+
+Java uses packages to group related types.  Grouping services within a cloud infrastructure is common since it aids discoverability and provides structure to the reference documentation.
+
+In Java, the namespace should be named `com.azure.<group>.<service>[.<feature>]`.  All consumer-facing APIs that are commonly used should exist within this package structure.  Here:
+
+- `<group>` is the group for the service (see the list above)
+- `<service>` is the service name represented as a single word
+- `<feature>` is an optional subpackage to break services into separate components (for example, storage may have `.blob`, `.files`, and `.queues`)
+
+{% include requirement/MUST id="java-namespaces-prefix" %} start the package with `com.azure` to indicate an Azure client library.
+
+{% include requirement/MUST id="java-namespaces-format" %} construct the package name with all lowercase letters (no camel case is allowed), without spaces, hyphens, or underscores. For example, Azure Key Vault would be in `com.azure.security.keyvault` - note that the two words 'Key' and 'Vault' are brought together to `keyvault`, instead of `keyVault`, `key_vault`, or `key-vault`.  It may further be shortened if the shortened version is well known in the community.  For example, "Azure Media Analytics" would have a compressed service name of `mediaanalytics`, and "Azure Service Bus" would become `servicebus`.
+
+{% include requirement/MUST id="java-namespaces-package-name" %} pick a package name that allows the consumer to tie the package to the service being used. The package does **NOT** change when the branding of the product changes.  Avoid the use of marketing names that may change.
+
+{% include requirement/MUST id="java-namespaces-approved-list" %} use the following list as the group of services:
+
+{% include tables/data_namespaces.md %}
+
+If the client library does not seem to fit into the group list, contact the [Architecture Board] to discuss the namespace requirements.
+
+{% include requirement/MUST id="java-namespaces-management" %} place the management (Azure Resource Manager) API in the `management` group.  Use the grouping `<AZURE>.management.<group>.<service>` for the namespace. Since more services require control plane APIs than data plane APIs, other namespaces may be used explicitly for control plane only.  Data plane usage is by exception only.  Additional namespaces that can be used for control plane SDKs include:
+
+{% include tables/mgmt_namespaces.md %}
+
+Many `management` APIs do not have a data plane because they deal with management of the Azure account. Place the management library in the `com.azure.management` namespace.  For example, use `com.azure.management.costanalysis` instead of `com.azure.management.management.costanalysis`.
+
+{% include requirement/MUSTNOT id="java-namespaces-ambiguity" %} choose similar names for clients that do different things.
+
+{% include requirement/MUST id="java-namespaces-registration" %} register the chosen namespace with the [Architecture Board].  Open an issue to request the namespace.  See [the registered namespace list](registered_namespaces.html) for a list of the currently registered namespaces.
+
+#### Example Namespaces
+
+Here are some examples of namespaces that meet these guidelines:
+
+- `com.azure.data.cosmos`
+- `com.azure.identity.activedirectory`
+- `com.azure.iot.deviceprovisioning`
+- `com.azure.storage.blob`
+- `com.azure.messaging.notificationhubs` (the client library for Notification Hubs)
+- `com.azure.management.messaging.notificationhubs` (the management library for Notification Hubs)
+
+Here are some namespaces that do not meet the guidelines:
+
+- `com.microsoft.azure.cosmosdb` (not in the `com.azure` namespace and does not use grouping)
+- `com.azure.mixedreality.kinect` (the grouping is not in the approved list)
+
+{% include requirement/MUSTNOT id="java-namespaces-implementation" %} allow implementation code (that is, code that doesn't form part of the public API) to be mistaken as public API. There are two valid arrangements for implementation code:
+
+1. Implementation classes can be placed within a subpackage named `implementation`.
+2. Implementation classes can be made package-private and placed within the same package as the consuming class.
+
+CheckStyle checks ensure that classes within an `implementation` package aren't exposed through public API.
+
+#### Maven
+
+All client libraries for Java standardize on the Maven build tooling for build and dependency management. This section details the standard configuration that must be used in all client libraries.
+
+{% include requirement/MUST id="java-maven-pom" %} ship a maven pom.xml for each client library, or for each module within that client library (e.g. Storage might have one each for blob, queue, and file).
+
+{% include requirement/MUST id="java-maven-groupid" %} specify the `groupId` as `com.azure`.
+
+{% include requirement/MUST id="java-maven-artifactid" %} specify the `artifactId` to be of the form `azure-<group>-<service>`, for example, `azure-storage-blob`. In cases where the client library has multiple children modules, set the root POM `artifactId` to be of the form `azure-<group>-<service>-parent`.
+
+{% include requirement/MUST id="java-maven-name" %} specify the `name` element to take the form `Microsoft Azure client library for <service name>`.
+
+{% include requirement/MUST id="java-maven-description" %} specify the `description` element to be a slightly longer statement along the lines of `This package contains the Microsoft Azure <service> client library`.
+
+{% include requirement/MUST id="java-maven-url" %} specify the `url` element to point to the root of the GitHub repository (i.e. `https://github.com/Azure/azure-sdk-for-java`).
+
+{% include requirement/MUST id="java-maven-url" %} specify the source code management section, to specify where the source code resides for the client library. If the source code is located in the https://github.com/Azure/azure-sdk-for-java repository, then the following form must be used:
+
+```
+<scm>
+    <url>scm:git:https://github.com/Azure/azure-sdk-for-java</url>
+    <connection>scm:git:git@github.com:Azure/azure-sdk-for-java.git</connection>
+    <tag>HEAD</tag>
+</scm>
+```
+
+{% include requirement/MUSTNOT id="java-maven-developers" %} change the `developers` section of the POM file - it must only list a developer `id` of `microsoft` and a `name` of `Microsoft Corporation`.
+
+### Modules
+
+Java 9 and later support the notion of a module. A module *exports* certain packages, and *requires* other modules. Any package that is exported can be used by other modules, and anything that is not exported is invisible at compile and run times. This is a far stronger form of encapsulation than has existed previously for Java. For the Azure SDK for Java, a client library will be repesented as one or more modules. Two good resources to understand modules are available on [oracle.com](https://www.oracle.com/corporate/features/understanding-java-9-modules.html) and [baeldung.com](https://www.baeldung.com/java-9-modularity).
+
+{% include requirement/MUST id="java-module-info" %} include a `module-info.java` file for each module you ship.
+
+{% include requirement/MUST id="java-module-name" %} name your module based on the root package of the client library it represents. For example, `com.azure.core` or `com.azure.storage.blob`.
+
+{% include requirement/MUST id="java-module-requires" %} require only the minimum set of modules relevant for the module being developed.
+
+{% include requirement/MUST id="java-module-exports" %} export only packages that are considered public API. In particular, do **not** export packages that are in the `implementation` package namespace, as these, by convention, are not intended for public use.
+
+{% include requirement/MUSTNOT id="java-module-no-conditional-exports" %} conditionally `export` or `opens` packages to other modules without prior approval by the architecture board. A conditional `export` or `opens` statement takes the form `export X to Y` or `opens X to Y`.
+
+{% include requirement/MUSTNOT id="java-module-split-packages" %} have the same package in multiple modules. That is, do not have `com.azure.storage.blob` in module `com.azure.storage.blob` and in module `com.azure.storage.blob.extras`. It is however allowed to have different packages with common parent packages split across different modules. For example, a package named `com.azure.storage` can be in one module, and `com.azure.storage.blob` can be in another.
+
+
+### Versioning
 
 {% include requirement/MUST id="java-versioning-backwards-compatibility" %} be 100% backwards compatible with older versions of the same package.
 
@@ -1007,7 +1068,7 @@ There are two annotations of note that should be applied on model classes, when 
 
 Breaking changes should happen rarely, if ever.  Register your intent to do a breaking change with [adparch]. You'll need to have a discussion with the language architect before approval.
 
-### Version Numbers {#java-versionnumbers}
+#### Version Numbers {#java-versionnumbers}
 
 Consistent version number scheme allows consumers to determine what to expect from a new version of the library.
 
